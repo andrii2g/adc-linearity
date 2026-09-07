@@ -1,0 +1,12 @@
+[package]
+name = "adc-linearity-audit"
+version = "0.1.0"
+edition = "2021"
+description = "Static ADC ramp-sweep analysis with explicit linearity references"
+publish = false
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+csv = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
