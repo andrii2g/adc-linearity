@@ -1,0 +1,472 @@
+{
+  "config": {
+    "bits": 3,
+    "vmin_v": 0,
+    "vmax_v": 8,
+    "nominal_lsb_v": 1
+  },
+  "notes": [
+    "Expectations are analytic test oracles, not Rust execution output.",
+    "null means unavailable, not zero.",
+    "Dense hand fixtures have half-bracket 0.0625 V."
+  ],
+  "cases": {
+    "perfect-3bit": {
+      "status": "valid",
+      "samples": 64,
+      "resolved_k": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "unresolved_k": [],
+      "missing_candidates": [],
+      "true_thresholds_v": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "estimate_v": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "widths_v": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "endpoint_inl_lsb": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "best_fit_inl_lsb": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "nominal_dnl_lsb": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "offset_v": 0,
+      "gain_span_error_percent": 0
+    },
+    "bow-hand-3bit": {
+      "status": "valid",
+      "samples": 64,
+      "resolved_k": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "unresolved_k": [],
+      "missing_candidates": [],
+      "true_thresholds_v": [
+        1,
+        2,
+        3.25,
+        4.5,
+        5.25,
+        6,
+        7
+      ],
+      "estimate_v": [
+        1,
+        2,
+        3.25,
+        4.5,
+        5.25,
+        6,
+        7
+      ],
+      "widths_v": [
+        1,
+        1.25,
+        1.25,
+        0.75,
+        0.75,
+        1
+      ],
+      "endpoint_inl_lsb": [
+        0,
+        0,
+        0.25,
+        0.5,
+        0.25,
+        0,
+        0
+      ],
+      "best_fit_line": {
+        "a_v": 0.14285714285714285,
+        "b_v_per_code": 1
+      },
+      "best_fit_inl_lsb": [
+        -0.14285714285714285,
+        -0.14285714285714285,
+        0.10714285714285714,
+        0.35714285714285715,
+        0.10714285714285714,
+        -0.14285714285714285,
+        -0.14285714285714285
+      ],
+      "nominal_dnl_lsb": [
+        0,
+        0.25,
+        0.25,
+        -0.25,
+        -0.25,
+        0
+      ],
+      "offset_v": 0,
+      "gain_span_error_percent": 0
+    },
+    "affine-3bit": {
+      "status": "valid",
+      "samples": 72,
+      "resolved_k": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "unresolved_k": [],
+      "missing_candidates": [],
+      "true_thresholds_v": [
+        1.375,
+        2.5,
+        3.625,
+        4.75,
+        5.875,
+        7.0,
+        8.125
+      ],
+      "estimate_v": [
+        1.375,
+        2.5,
+        3.625,
+        4.75,
+        5.875,
+        7.0,
+        8.125
+      ],
+      "widths_v": [
+        1.125,
+        1.125,
+        1.125,
+        1.125,
+        1.125,
+        1.125
+      ],
+      "endpoint_inl_lsb": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "best_fit_inl_lsb": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "nominal_dnl_lsb": [
+        0.125,
+        0.125,
+        0.125,
+        0.125,
+        0.125,
+        0.125
+      ],
+      "endpoint_line": {
+        "a_v": 0.25,
+        "b_v_per_code": 1.125
+      },
+      "offset_v": 0.375,
+      "gain_span_error_v": 0.75,
+      "gain_span_error_percent": 12.5
+    },
+    "missing-3bit": {
+      "status": "partial",
+      "samples": 64,
+      "resolved_k": [
+        1,
+        2,
+        5,
+        6,
+        7
+      ],
+      "unresolved_k": [
+        3,
+        4
+      ],
+      "missing_candidates": [
+        3
+      ],
+      "true_thresholds_v": [
+        1,
+        2,
+        3,
+        3,
+        5,
+        6,
+        7
+      ],
+      "true_missing_codes": [
+        3
+      ],
+      "estimate_v": [
+        1,
+        2,
+        null,
+        null,
+        5,
+        6,
+        7
+      ],
+      "widths_v": [
+        1,
+        null,
+        null,
+        null,
+        1,
+        1
+      ],
+      "nominal_dnl_lsb": [
+        0,
+        null,
+        null,
+        null,
+        0,
+        0
+      ],
+      "endpoint_inl_lsb": [
+        0,
+        0,
+        null,
+        null,
+        0,
+        0,
+        0
+      ],
+      "cumulative_run_id": [
+        0,
+        0,
+        null,
+        null,
+        1,
+        1,
+        1
+      ],
+      "cumulative_run_start": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "offset_v": 0,
+      "gain_span_error_percent": 0
+    },
+    "coarse-perfect-3bit": {
+      "status": "partial",
+      "samples": 5,
+      "resolved_k": [
+        7
+      ],
+      "unresolved_k": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_candidates": [
+        1,
+        3,
+        5
+      ],
+      "true_missing_codes": [],
+      "true_thresholds_v": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "estimate_v": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        7
+      ],
+      "widths_v": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "available_references": [
+        "nominal"
+      ],
+      "offset_v": null,
+      "gain_span_error_percent": null
+    },
+    "partial-3bit": {
+      "status": "partial",
+      "samples": 32,
+      "resolved_k": [
+        3,
+        4,
+        5
+      ],
+      "unresolved_k": [],
+      "missing_candidates": [],
+      "untested_codes": [
+        0,
+        1,
+        6,
+        7
+      ],
+      "estimate_v": [
+        null,
+        null,
+        3,
+        4,
+        5,
+        null,
+        null
+      ],
+      "widths_v": [
+        null,
+        null,
+        1,
+        1,
+        null,
+        null
+      ],
+      "available_references": [
+        "nominal",
+        "best_fit"
+      ],
+      "offset_v": null,
+      "gain_span_error_percent": null
+    },
+    "constant-3bit": {
+      "status": "partial",
+      "samples": 3,
+      "resolved_k": [],
+      "unresolved_k": [],
+      "missing_candidates": [],
+      "untested_codes": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+        7
+      ],
+      "estimate_v": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "widths_v": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "available_references": [],
+      "offset_v": null,
+      "gain_span_error_percent": null
+    },
+    "reversal-3bit": {
+      "status": "non_monotonic",
+      "samples": 4,
+      "resolved_k": [],
+      "unresolved_k": [],
+      "missing_candidates": [],
+      "reversal_count": 1,
+      "jump_count": 1,
+      "estimate_v": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "widths_v": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "available_references": [],
+      "offset_v": null,
+      "gain_span_error_percent": null
+    }
+  }
+}

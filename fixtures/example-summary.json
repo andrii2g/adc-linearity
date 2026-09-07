@@ -1,0 +1,617 @@
+{
+  "schema_version": 1,
+  "source": "perfect-3bit.csv",
+  "config": {
+    "bits": 3,
+    "vmin_v": 0,
+    "vmax_v": 8,
+    "levels": 8,
+    "nominal_lsb_v": 1,
+    "quantizer": "floor"
+  },
+  "status": "valid",
+  "sample_count": 64,
+  "coverage": {
+    "observed_code_count": 8,
+    "min_observed_code": 0,
+    "max_observed_code": 7,
+    "resolved_transition_count": 7,
+    "covered_transition_count": 7,
+    "expected_transition_count": 7,
+    "resolved_width_count": 6,
+    "expected_width_count": 6
+  },
+  "quality": {
+    "step_count": 63,
+    "step_min_v": 0.125,
+    "step_mean_v": 0.125,
+    "step_max_v": 0.125,
+    "step_min_lsb": 0.125,
+    "step_mean_lsb": 0.125,
+    "step_max_lsb": 0.125,
+    "max_bracket_v": 0.125,
+    "max_bracket_lsb": 0.125
+  },
+  "calibration": {
+    "availability": "available",
+    "reason": null,
+    "basis": "first_and_last_internal_transition",
+    "gain_convention": "input_span",
+    "offset_v": 0,
+    "offset_lsb": 0,
+    "gain_span_error_v": 0,
+    "gain_span_error_lsb": 0,
+    "gain_span_error_percent": 0
+  },
+  "references": [
+    {
+      "name": "nominal",
+      "availability": "available",
+      "reason": null,
+      "line": {
+        "a_v": 0,
+        "b_v_per_code": 1,
+        "anchor_k": 4,
+        "anchor_v": 4,
+        "intercept_shift_v": 0
+      },
+      "lsb_basis": "nominal",
+      "display_quantity": "total_transition_error",
+      "coverage": {
+        "scope": "full_range",
+        "evaluated_transition_count": 7,
+        "evaluated_width_count": 6,
+        "expected_transition_count": 7,
+        "expected_width_count": 6
+      },
+      "dnl_summary": {
+        "count": 6,
+        "min_lsb": 0,
+        "min_code": 1,
+        "max_lsb": 0,
+        "max_code": 1,
+        "max_abs_lsb": 0,
+        "max_abs_code": 1
+      },
+      "inl_summary": {
+        "count": 7,
+        "min_lsb": 0,
+        "min_k": 1,
+        "max_lsb": 0,
+        "max_k": 1,
+        "max_abs_lsb": 0,
+        "max_abs_k": 1,
+        "rms_lsb": 0
+      },
+      "transition_metrics": [
+        {
+          "k": 1,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": true
+        },
+        {
+          "k": 2,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 3,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 4,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 5,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 6,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 7,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        }
+      ],
+      "code_metrics": [
+        {
+          "code": 1,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 2,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 3,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 4,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 5,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 6,
+          "dnl_lsb": 0
+        }
+      ]
+    },
+    {
+      "name": "endpoint",
+      "availability": "available",
+      "reason": null,
+      "line": {
+        "a_v": 0,
+        "b_v_per_code": 1,
+        "anchor_k": 4,
+        "anchor_v": 4,
+        "intercept_shift_v": 0
+      },
+      "lsb_basis": "reference_slope",
+      "display_quantity": "inl",
+      "coverage": {
+        "scope": "full_range",
+        "evaluated_transition_count": 7,
+        "evaluated_width_count": 6,
+        "expected_transition_count": 7,
+        "expected_width_count": 6
+      },
+      "dnl_summary": {
+        "count": 6,
+        "min_lsb": 0,
+        "min_code": 1,
+        "max_lsb": 0,
+        "max_code": 1,
+        "max_abs_lsb": 0,
+        "max_abs_code": 1
+      },
+      "inl_summary": {
+        "count": 7,
+        "min_lsb": 0,
+        "min_k": 1,
+        "max_lsb": 0,
+        "max_k": 1,
+        "max_abs_lsb": 0,
+        "max_abs_k": 1,
+        "rms_lsb": 0
+      },
+      "transition_metrics": [
+        {
+          "k": 1,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": true
+        },
+        {
+          "k": 2,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 3,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 4,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 5,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 6,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 7,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        }
+      ],
+      "code_metrics": [
+        {
+          "code": 1,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 2,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 3,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 4,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 5,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 6,
+          "dnl_lsb": 0
+        }
+      ]
+    },
+    {
+      "name": "best_fit",
+      "availability": "available",
+      "reason": null,
+      "line": {
+        "a_v": 0,
+        "b_v_per_code": 1,
+        "anchor_k": 4,
+        "anchor_v": 4,
+        "intercept_shift_v": 0
+      },
+      "lsb_basis": "reference_slope",
+      "display_quantity": "inl",
+      "coverage": {
+        "scope": "full_range",
+        "evaluated_transition_count": 7,
+        "evaluated_width_count": 6,
+        "expected_transition_count": 7,
+        "expected_width_count": 6
+      },
+      "dnl_summary": {
+        "count": 6,
+        "min_lsb": 0,
+        "min_code": 1,
+        "max_lsb": 0,
+        "max_code": 1,
+        "max_abs_lsb": 0,
+        "max_abs_code": 1
+      },
+      "inl_summary": {
+        "count": 7,
+        "min_lsb": 0,
+        "min_k": 1,
+        "max_lsb": 0,
+        "max_k": 1,
+        "max_abs_lsb": 0,
+        "max_abs_k": 1,
+        "rms_lsb": 0
+      },
+      "transition_metrics": [
+        {
+          "k": 1,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": true
+        },
+        {
+          "k": 2,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 3,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 4,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 5,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 6,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        },
+        {
+          "k": 7,
+          "inl_lsb": 0,
+          "cumulative_inl_lsb": 0,
+          "cumulative_run_id": 0,
+          "cumulative_run_start": false
+        }
+      ],
+      "code_metrics": [
+        {
+          "code": 1,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 2,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 3,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 4,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 5,
+          "dnl_lsb": 0
+        },
+        {
+          "code": 6,
+          "dnl_lsb": 0
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "k": 1,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 0.9375,
+        "upper_v": 1.0625,
+        "lower_record": 9,
+        "upper_record": 10
+      },
+      "estimate_v": 1,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    },
+    {
+      "k": 2,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 1.9375,
+        "upper_v": 2.0625,
+        "lower_record": 17,
+        "upper_record": 18
+      },
+      "estimate_v": 2,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    },
+    {
+      "k": 3,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 2.9375,
+        "upper_v": 3.0625,
+        "lower_record": 25,
+        "upper_record": 26
+      },
+      "estimate_v": 3,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    },
+    {
+      "k": 4,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 3.9375,
+        "upper_v": 4.0625,
+        "lower_record": 33,
+        "upper_record": 34
+      },
+      "estimate_v": 4,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    },
+    {
+      "k": 5,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 4.9375,
+        "upper_v": 5.0625,
+        "lower_record": 41,
+        "upper_record": 42
+      },
+      "estimate_v": 5,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    },
+    {
+      "k": 6,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 5.9375,
+        "upper_v": 6.0625,
+        "lower_record": 49,
+        "upper_record": 50
+      },
+      "estimate_v": 6,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    },
+    {
+      "k": 7,
+      "status": "resolved",
+      "bracket": {
+        "lower_v": 6.9375,
+        "upper_v": 7.0625,
+        "lower_record": 57,
+        "upper_record": 58
+      },
+      "estimate_v": 7,
+      "half_bracket_v": 0.0625,
+      "nominal_error_lower_lsb": -0.0625,
+      "nominal_error_upper_lsb": 0.0625
+    }
+  ],
+  "codes": [
+    {
+      "code": 0,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "saturation",
+      "width_v": null,
+      "width_lower_v": null,
+      "width_upper_v": null,
+      "nominal_dnl_lsb": null,
+      "nominal_dnl_lower_lsb": null,
+      "nominal_dnl_upper_lsb": null
+    },
+    {
+      "code": 1,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "resolved",
+      "width_v": 1,
+      "width_lower_v": 0.875,
+      "width_upper_v": 1.125,
+      "nominal_dnl_lsb": 0,
+      "nominal_dnl_lower_lsb": -0.125,
+      "nominal_dnl_upper_lsb": 0.125
+    },
+    {
+      "code": 2,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "resolved",
+      "width_v": 1,
+      "width_lower_v": 0.875,
+      "width_upper_v": 1.125,
+      "nominal_dnl_lsb": 0,
+      "nominal_dnl_lower_lsb": -0.125,
+      "nominal_dnl_upper_lsb": 0.125
+    },
+    {
+      "code": 3,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "resolved",
+      "width_v": 1,
+      "width_lower_v": 0.875,
+      "width_upper_v": 1.125,
+      "nominal_dnl_lsb": 0,
+      "nominal_dnl_lower_lsb": -0.125,
+      "nominal_dnl_upper_lsb": 0.125
+    },
+    {
+      "code": 4,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "resolved",
+      "width_v": 1,
+      "width_lower_v": 0.875,
+      "width_upper_v": 1.125,
+      "nominal_dnl_lsb": 0,
+      "nominal_dnl_lower_lsb": -0.125,
+      "nominal_dnl_upper_lsb": 0.125
+    },
+    {
+      "code": 5,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "resolved",
+      "width_v": 1,
+      "width_lower_v": 0.875,
+      "width_upper_v": 1.125,
+      "nominal_dnl_lsb": 0,
+      "nominal_dnl_lower_lsb": -0.125,
+      "nominal_dnl_upper_lsb": 0.125
+    },
+    {
+      "code": 6,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "resolved",
+      "width_v": 1,
+      "width_lower_v": 0.875,
+      "width_upper_v": 1.125,
+      "nominal_dnl_lsb": 0,
+      "nominal_dnl_lower_lsb": -0.125,
+      "nominal_dnl_upper_lsb": 0.125
+    },
+    {
+      "code": 7,
+      "samples": 8,
+      "observation_status": "observed",
+      "width_status": "saturation",
+      "width_v": null,
+      "width_lower_v": null,
+      "width_upper_v": null,
+      "nominal_dnl_lsb": null,
+      "nominal_dnl_lower_lsb": null,
+      "nominal_dnl_upper_lsb": null
+    }
+  ],
+  "diagnostics": {
+    "jump_count": 0,
+    "reversal_count": 0,
+    "jumps_omitted": 0,
+    "reversals_omitted": 0,
+    "jumps": [],
+    "reversals": [],
+    "missing_code_candidates": [],
+    "untested_codes": [],
+    "candidates_interpretable": true,
+    "warnings": []
+  },
+  "assumptions": [
+    "Increasing deterministic sweep.",
+    "Floor transition convention.",
+    "Sampling bounds exclude input-source error and noise.",
+    "Fitted-line uncertainty bounds are not estimated.",
+    "Unobserved codes are not proven missing.",
+    "Saturation widths are excluded."
+  ]
+}
