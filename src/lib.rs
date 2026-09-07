@@ -11,8 +11,16 @@ pub enum AuditError {
     Json(serde_json::Error),
 }
 impl AuditError {
-    pub fn validation(message: impl Into<String>) -> Self { Self::Validation(message.into()) }
-    pub fn exit_code(&self) -> i32 { if matches!(self, Self::Validation(_)) { 2 } else { 1 } }
+    pub fn validation(message: impl Into<String>) -> Self {
+        Self::Validation(message.into())
+    }
+    pub fn exit_code(&self) -> i32 {
+        if matches!(self, Self::Validation(_)) {
+            2
+        } else {
+            1
+        }
+    }
 }
 impl fmt::Display for AuditError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -25,9 +33,21 @@ impl fmt::Display for AuditError {
     }
 }
 impl std::error::Error for AuditError {}
-impl From<std::io::Error> for AuditError { fn from(e: std::io::Error) -> Self { Self::Io(e) } }
-impl From<csv::Error> for AuditError { fn from(e: csv::Error) -> Self { Self::Csv(e) } }
-impl From<serde_json::Error> for AuditError { fn from(e: serde_json::Error) -> Self { Self::Json(e) } }
+impl From<std::io::Error> for AuditError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+impl From<csv::Error> for AuditError {
+    fn from(e: csv::Error) -> Self {
+        Self::Csv(e)
+    }
+}
+impl From<serde_json::Error> for AuditError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::Json(e)
+    }
+}
 
 pub mod analysis;
 pub mod cli;

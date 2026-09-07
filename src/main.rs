@@ -1,4 +1,3 @@
 fn main() {
-    eprintln!("Implementation scaffold: follow AGENTS.md and prompts/IMPLEMENT.md.");
-    std::process::exit(2);
+    std::process::exit(adc_linearity_audit::cli::run())
 }
