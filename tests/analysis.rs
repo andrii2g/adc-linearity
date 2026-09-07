@@ -217,3 +217,126 @@ fn diagnostic_event_storage_is_bounded_but_counts_are_exact() {
     assert_eq!(r.diagnostics.jumps.len(), 1000);
     assert_eq!(r.diagnostics.reversals.len(), 1000);
 }
+
+#[test]
+fn extrema_ties_saturation_and_absent_summaries_are_explicit() {
+    let perfect = audit("perfect-3bit.csv");
+    let nominal = perfect
+        .references
+        .iter()
+        .find(|x| x.name == "nominal")
+        .unwrap();
+    let d = nominal.dnl_summary.as_ref().unwrap();
+    assert_eq!((d.min_code, d.max_code, d.max_abs_code), (1, 1, 1));
+    let i = nominal.inl_summary.as_ref().unwrap();
+    assert_eq!((i.min_k, i.max_k, i.max_abs_k), (1, 1, 1));
+    for c in [&perfect.codes[0], &perfect.codes[7]] {
+        assert_eq!(c.width_status, "saturation");
+        assert!(c.width_v.is_none() && c.nominal_dnl_lsb.is_none());
+    }
+    let constant = audit("constant-3bit.csv");
+    assert!(constant.references.iter().all(|r| r.dnl_summary.is_none()));
+}
+
+#[test]
+fn calibration_does_not_depend_on_requested_reference() {
+    let bytes =
+        std::fs::read(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/affine-3bit.csv"))
+            .unwrap();
+    let mut values = vec![];
+    for selection in [
+        ReferenceSelection::Nominal,
+        ReferenceSelection::Endpoint,
+        ReferenceSelection::BestFit,
+        ReferenceSelection::All,
+    ] {
+        let r = analyze(
+            Cursor::new(bytes.clone()),
+            &cfg(),
+            selection,
+            "affine.csv".into(),
+        )
+        .unwrap();
+        values.push((
+            r.calibration.offset_v,
+            r.calibration.gain_span_error_percent,
+        ));
+    }
+    assert!(values.windows(2).all(|w| w[0] == w[1]));
+}
+
+#[test]
+fn centered_fit_is_stable_with_a_large_voltage_origin() {
+    let origin = 1_000_000_000.0;
+    let mut csv = String::from("input_v,code\n");
+    for i in 0..64 {
+        let x = origin + 0.0625 + i as f64 * 0.125;
+        let code = ((x - origin).floor() as usize).min(7);
+        csv.push_str(&format!("{x},{code}\n"))
+    }
+    let c = AuditConfig {
+        bits: 3,
+        vmin_v: origin,
+        vmax_v: origin + 8.0,
+    };
+    let r = analyze(
+        Cursor::new(csv),
+        &c,
+        ReferenceSelection::BestFit,
+        "large.csv".into(),
+    )
+    .unwrap();
+    near(r.references[0].line.as_ref().unwrap().b_v_per_code, 1.0);
+    assert!(r.references[0]
+        .transition_metrics
+        .iter()
+        .all(|m| m.inl_lsb.unwrap().abs() < 1e-12));
+}
+
+#[test]
+fn every_resolved_width_truth_lies_inside_sampling_bounds() {
+    for name in ["perfect-3bit.csv", "bow-hand-3bit.csv", "affine-3bit.csv"] {
+        let r = audit(name);
+        for c in &r.codes[1..7] {
+            let w = c.width_v.unwrap();
+            assert!(c.width_lower_v.unwrap() <= w && w <= c.width_upper_v.unwrap());
+        }
+        for rf in &r.references {
+            for m in &rf.transition_metrics {
+                if let (Some(a), Some(b)) = (m.inl_lsb, m.cumulative_inl_lsb) {
+                    near(a, b)
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn synthesis_rejects_excessive_sample_counts_and_nonmonotone_model() {
+    let too_many = SynthConfig {
+        audit: AuditConfig {
+            bits: 16,
+            vmin_v: 0.0,
+            vmax_v: 1.0,
+        },
+        model: SynthModel::Perfect,
+        samples_per_lsb: 1024,
+        amplitude_lsb: None,
+        periods: None,
+        missing_code: None,
+        offset_lsb: 0.0,
+        span_error_percent: 0.0,
+    };
+    assert!(make(too_many).is_err());
+    let invalid = SynthConfig {
+        audit: cfg(),
+        model: SynthModel::Periodic,
+        samples_per_lsb: 64,
+        amplitude_lsb: Some(100.0),
+        periods: Some(2),
+        missing_code: None,
+        offset_lsb: 0.0,
+        span_error_percent: 0.0,
+    };
+    assert!(make(invalid).is_err());
+}

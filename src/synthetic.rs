@@ -155,6 +155,25 @@ pub fn make(config: SynthConfig) -> Result<SyntheticData, AuditError> {
             "synthetic sample count exceeds 5,000,000",
         ));
     }
+    let at = |i: u64| {
+        if i == 0 {
+            start_v
+        } else if i == intervals {
+            end_v
+        } else {
+            start_v + (end_v - start_v) * (i as f64 / intervals as f64)
+        }
+    };
+    let mut previous = at(0);
+    for i in 1..=intervals {
+        let current = at(i);
+        if !current.is_finite() || current <= previous {
+            return Err(AuditError::validation(
+                "synthetic sample grid is not strictly representable in f64",
+            ));
+        }
+        previous = current;
+    }
     let true_missing_codes = if config.model == SynthModel::MissingCode {
         vec![missing]
     } else {
@@ -224,6 +243,15 @@ impl SyntheticData {
                 n
             })
             .unwrap_or_else(|| self.sample_count());
+        let effective_amplitude = match self.request.model {
+            SynthModel::Bow => Some(self.request.amplitude_lsb.unwrap_or(3.0)),
+            SynthModel::Periodic => Some(self.request.amplitude_lsb.unwrap_or(0.4)),
+            _ => None,
+        };
+        let effective_periods =
+            (self.request.model == SynthModel::Periodic).then(|| self.request.periods.unwrap_or(8));
+        let effective_missing = (self.request.model == SynthModel::MissingCode)
+            .then(|| self.request.missing_code.unwrap_or(self.config.levels / 2));
         Truth {
             schema_version: 1,
             kind: "synthetic_truth".into(),
@@ -237,7 +265,7 @@ impl SyntheticData {
                 quantizer: "floor".into(),
             },
             model: self.request.model.name().into(),
-            parameters: json!({"amplitude_lsb":self.request.amplitude_lsb,"periods":self.request.periods,"missing_code":self.request.missing_code,"offset_lsb":self.request.offset_lsb,"span_error_percent":self.request.span_error_percent}),
+            parameters: json!({"amplitude_lsb":effective_amplitude,"periods":effective_periods,"missing_code":effective_missing,"offset_lsb":self.request.offset_lsb,"span_error_percent":self.request.span_error_percent}),
             sample_count: retained,
             sample_start_v: self.start_v,
             sample_end_v: self.end_v,
