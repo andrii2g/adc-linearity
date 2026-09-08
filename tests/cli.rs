@@ -22,11 +22,24 @@ fn fixture(path: &str) -> std::path::PathBuf {
         .join("fixtures")
         .join(path)
 }
-fn collect_tree(root:&Path)->BTreeMap<PathBuf,Vec<u8>>{
-    fn visit(root:&Path,dir:&Path,files:&mut BTreeMap<PathBuf,Vec<u8>>){
-        for entry in fs::read_dir(dir).unwrap(){let entry=entry.unwrap();let path=entry.path();if path.is_dir(){visit(root,&path,files)}else{files.insert(path.strip_prefix(root).unwrap().to_owned(),fs::read(path).unwrap());}}
+fn collect_tree(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+    fn visit(root: &Path, dir: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
+        for entry in fs::read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                visit(root, &path, files)
+            } else {
+                files.insert(
+                    path.strip_prefix(root).unwrap().to_owned(),
+                    fs::read(path).unwrap(),
+                );
+            }
+        }
     }
-    let mut files=BTreeMap::new();visit(root,root,&mut files);files
+    let mut files = BTreeMap::new();
+    visit(root, root, &mut files);
+    files
 }
 
 #[test]
@@ -153,25 +166,91 @@ fn invalid_output_parent_returns_one() {
 }
 
 #[test]
-fn demo_artifacts_are_complete_semantic_and_deterministic(){
-    let first=temp("demo-first");let second=temp("demo-second");
-    assert!(bin().args(["demo","--out"]).arg(&first).status().unwrap().success());
-    assert!(bin().args(["demo","--out"]).arg(&second).status().unwrap().success());
-    let scenarios=["perfect","bow","periodic","missing-code","affine","coarse-perfect"];
-    for name in scenarios{
-        let root=first.join(name);let audit=root.join("audit");
-        let report:serde_json::Value=serde_json::from_reader(fs::File::open(audit.join("summary.json")).unwrap()).unwrap();
-        let truth:serde_json::Value=serde_json::from_reader(fs::File::open(root.join("input/truth.json")).unwrap()).unwrap();
-        assert_eq!(report["schema_version"],1);let levels=1usize<<report["config"]["bits"].as_u64().unwrap();
-        assert_eq!(report["transitions"].as_array().unwrap().len(),levels-1);assert_eq!(report["codes"].as_array().unwrap().len(),levels);
-        let refs:Vec<_>=report["references"].as_array().unwrap().iter().map(|r|r["name"].as_str().unwrap()).collect();assert_eq!(refs,vec!["nominal","endpoint","best_fit"]);
-        for(file,count)in[("transitions.csv",levels-1),("codes.csv",levels)]{let mut reader=csv::Reader::from_path(audit.join(file)).unwrap();assert_eq!(reader.records().count(),count);}
-        for file in ["transfer.svg","dnl.svg","inl.svg"]{let svg=fs::read_to_string(audit.join(file)).unwrap();assert!(svg.starts_with("<svg"));assert!(svg.contains("<title>"));assert!(svg.ends_with("</svg>"));assert!(!svg.contains("<script"));assert!(!svg.contains("<foreignObject"));}
-        if matches!(name,"perfect"|"bow"|"periodic"|"affine"){assert_eq!(report["status"],"valid");assert_eq!(report["diagnostics"]["missing_code_candidates"].as_array().unwrap().len(),0);}
-        if name=="missing-code"{assert_eq!(report["status"],"partial");assert_eq!(truth["true_missing_codes"],serde_json::json!([128]));assert_eq!(report["diagnostics"]["missing_code_candidates"],serde_json::json!([128]));assert!(report["codes"][128]["width_v"].is_null());}
-        if name=="coarse-perfect"{assert_eq!(report["status"],"partial");assert_eq!(truth["true_missing_codes"],serde_json::json!([]));assert!(!report["diagnostics"]["missing_code_candidates"].as_array().unwrap().is_empty());}
+fn demo_artifacts_are_complete_semantic_and_deterministic() {
+    let first = temp("demo-first");
+    let second = temp("demo-second");
+    assert!(bin()
+        .args(["demo", "--out"])
+        .arg(&first)
+        .status()
+        .unwrap()
+        .success());
+    assert!(bin()
+        .args(["demo", "--out"])
+        .arg(&second)
+        .status()
+        .unwrap()
+        .success());
+    let scenarios = [
+        "perfect",
+        "bow",
+        "periodic",
+        "missing-code",
+        "affine",
+        "coarse-perfect",
+    ];
+    for name in scenarios {
+        let root = first.join(name);
+        let audit = root.join("audit");
+        let report: serde_json::Value =
+            serde_json::from_reader(fs::File::open(audit.join("summary.json")).unwrap()).unwrap();
+        let truth: serde_json::Value =
+            serde_json::from_reader(fs::File::open(root.join("input/truth.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["schema_version"], 1);
+        let levels = 1usize << report["config"]["bits"].as_u64().unwrap();
+        assert_eq!(report["transitions"].as_array().unwrap().len(), levels - 1);
+        assert_eq!(report["codes"].as_array().unwrap().len(), levels);
+        let refs: Vec<_> = report["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(refs, vec!["nominal", "endpoint", "best_fit"]);
+        for (file, count) in [("transitions.csv", levels - 1), ("codes.csv", levels)] {
+            let mut reader = csv::Reader::from_path(audit.join(file)).unwrap();
+            assert_eq!(reader.records().count(), count);
+        }
+        for file in ["transfer.svg", "dnl.svg", "inl.svg"] {
+            let svg = fs::read_to_string(audit.join(file)).unwrap();
+            assert!(svg.starts_with("<svg"));
+            assert!(svg.contains("<title>"));
+            assert!(svg.ends_with("</svg>"));
+            assert!(!svg.contains("<script"));
+            assert!(!svg.contains("<foreignObject"));
+        }
+        if matches!(name, "perfect" | "bow" | "periodic" | "affine") {
+            assert_eq!(report["status"], "valid");
+            assert_eq!(
+                report["diagnostics"]["missing_code_candidates"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                0
+            );
+        }
+        if name == "missing-code" {
+            assert_eq!(report["status"], "partial");
+            assert_eq!(truth["true_missing_codes"], serde_json::json!([128]));
+            assert_eq!(
+                report["diagnostics"]["missing_code_candidates"],
+                serde_json::json!([128])
+            );
+            assert!(report["codes"][128]["width_v"].is_null());
+        }
+        if name == "coarse-perfect" {
+            assert_eq!(report["status"], "partial");
+            assert_eq!(truth["true_missing_codes"], serde_json::json!([]));
+            assert!(!report["diagnostics"]["missing_code_candidates"]
+                .as_array()
+                .unwrap()
+                .is_empty());
+        }
     }
-    let mut summary=csv::Reader::from_path(first.join("demo-summary.csv")).unwrap();assert_eq!(summary.records().count(),6);
-    assert_eq!(collect_tree(&first),collect_tree(&second));
-    fs::remove_dir_all(first).unwrap();fs::remove_dir_all(second).unwrap();
+    let mut summary = csv::Reader::from_path(first.join("demo-summary.csv")).unwrap();
+    assert_eq!(summary.records().count(), 6);
+    assert_eq!(collect_tree(&first), collect_tree(&second));
+    fs::remove_dir_all(first).unwrap();
+    fs::remove_dir_all(second).unwrap();
 }
