@@ -34,6 +34,7 @@ fn opt_u(v: Option<u32>) -> String {
     v.map(|x| x.to_string()).unwrap_or_default()
 }
 pub fn write_report(report: &AuditReport, out: &Path) -> Result<(), AuditError> {
+    validate_finite(report)?;
     prepare_output(out)?;
     let mut json = BufWriter::new(File::create(out.join("summary.json"))?);
     serde_json::to_writer_pretty(&mut json, report)?;
@@ -142,6 +143,122 @@ pub fn write_report(report: &AuditReport, out: &Path) -> Result<(), AuditError> 
     fs::write(out.join("transfer.svg"), svg::render_transfer(report)?)?;
     fs::write(out.join("dnl.svg"), svg::render_dnl(report)?)?;
     fs::write(out.join("inl.svg"), svg::render_inl(report)?)?;
+    Ok(())
+}
+fn validate_finite(report: &AuditReport) -> Result<(), AuditError> {
+    let finite = |value: f64| {
+        if value.is_finite() {
+            Ok(())
+        } else {
+            Err(AuditError::validation(
+                "computed report contains a non-finite number",
+            ))
+        }
+    };
+    for v in [
+        report.config.vmin_v,
+        report.config.vmax_v,
+        report.config.nominal_lsb_v,
+        report.quality.step_min_v,
+        report.quality.step_mean_v,
+        report.quality.step_max_v,
+        report.quality.step_min_lsb,
+        report.quality.step_mean_lsb,
+        report.quality.step_max_lsb,
+    ] {
+        finite(v)?
+    }
+    for v in [
+        report.quality.max_bracket_v,
+        report.quality.max_bracket_lsb,
+        report.calibration.offset_v,
+        report.calibration.offset_lsb,
+        report.calibration.gain_span_error_v,
+        report.calibration.gain_span_error_lsb,
+        report.calibration.gain_span_error_percent,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        finite(v)?
+    }
+    for t in &report.transitions {
+        if let Some(b) = t.bracket {
+            finite(b.lower_v)?;
+            finite(b.upper_v)?
+        }
+        for v in [
+            t.estimate_v,
+            t.half_bracket_v,
+            t.nominal_error_lower_lsb,
+            t.nominal_error_upper_lsb,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            finite(v)?
+        }
+    }
+    for c in &report.codes {
+        for v in [
+            c.width_v,
+            c.width_lower_v,
+            c.width_upper_v,
+            c.nominal_dnl_lsb,
+            c.nominal_dnl_lower_lsb,
+            c.nominal_dnl_upper_lsb,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            finite(v)?
+        }
+    }
+    for e in report
+        .diagnostics
+        .jumps
+        .iter()
+        .chain(&report.diagnostics.reversals)
+    {
+        finite(e.previous_v)?;
+        finite(e.current_v)?
+    }
+    for p in &report.plot_points {
+        finite(p.input_v)?
+    }
+    for r in &report.references {
+        if let Some(l) = &r.line {
+            for v in [
+                l.a_v,
+                l.b_v_per_code,
+                l.anchor_k,
+                l.anchor_v,
+                l.intercept_shift_v,
+            ] {
+                finite(v)?
+            }
+        }
+        for m in &r.transition_metrics {
+            for v in [m.inl_lsb, m.cumulative_inl_lsb].into_iter().flatten() {
+                finite(v)?
+            }
+        }
+        for m in &r.code_metrics {
+            if let Some(v) = m.dnl_lsb {
+                finite(v)?
+            }
+        }
+        if let Some(s) = &r.dnl_summary {
+            for v in [s.min_lsb, s.max_lsb, s.max_abs_lsb] {
+                finite(v)?
+            }
+        }
+        if let Some(s) = &r.inl_summary {
+            for v in [s.min_lsb, s.max_lsb, s.max_abs_lsb, s.rms_lsb] {
+                finite(v)?
+            }
+        }
+    }
     Ok(())
 }
 pub fn write_synth(
