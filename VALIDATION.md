@@ -14,11 +14,9 @@ Toolchain:
 | --- | --- |
 | cargo fmt --check | PASS |
 | cargo clippy --all-targets -- -D warnings | PASS |
-| cargo test | PASS: 30 tests (20 analysis, 7 CLI, 3 configuration), plus doc tests |
+| cargo test | PASS: 31 tests (20 analysis, 8 CLI, 3 configuration), plus doc tests |
 | cargo build --release | PASS |
-| python scripts/check_project.py | PASS: project/fixture checks |
 | cargo run --release -- demo --out results/demo | PASS |
-| python scripts/check_outputs.py results/demo | PASS: six artifact sets |
 | second release demo plus SHA-256 comparison | PASS: all 49 files byte-for-byte identical |
 
 The tests cover independent hand-derived perfect, bow, affine, missing-code,

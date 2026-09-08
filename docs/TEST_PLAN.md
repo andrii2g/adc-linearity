@@ -1,8 +1,8 @@
 # Test and acceptance plan
 
-Use Rust's built-in test framework. No RNG or network. Numerical tests use hand-derived
-values plus interval invariants; generator-to-analyzer round trips alone are insufficient.
-Scaffold config tests exist. The implementation task must add the remaining tests.
+The implemented suite uses Rust's built-in test framework with no RNG or network.
+Numerical tests use hand-derived values plus interval invariants; generator-to-analyzer
+round trips are supplemental rather than the sole oracle.
 
 ## Frozen fixture matrix
 
@@ -90,7 +90,7 @@ owned by the test. No extra dev dependency is needed.
 - Deserialize summary JSON and compare every available fixture field to expected.json.
 - Verify all requested reference objects exist even when unavailable.
 - Read generated CSV using csv crate; all row counts, headers and nulls agree with JSON.
-- Parse SVG with an available XML parser in Python verification; inspect rendered images.
+- Validate SVG structure and forbidden-element rules in Rust tests; inspect rendered images.
 - Escape a filename such as a&b.csv in SVG; no injected XML or external resource.
 - Gap tests check missing bins do not become polylines crossing null regions.
 - Repeat a demo in two fresh directories and compare outputs on one platform.
@@ -104,11 +104,9 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo build --release
-python3 scripts/verify_pack.py
 cargo run --release -- demo --out results/demo
-python3 scripts/check_outputs.py results/demo
 ```
 
 Also execute the CLI examples in docs/CLI.md, checking intended nonzero exit statuses.
-Add golden fixture comparison tests to cargo test; check_outputs.py is only a structural
-and broad semantic smoke check, not a substitute for the numerical test matrix.
+The Rust integration suite owns the golden fixture comparison, demo structure and
+semantics, SVG safety checks, and deterministic two-run artifact comparison.
