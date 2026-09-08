@@ -52,10 +52,26 @@ fn tick_labels(s: &mut String, xmin: f64, xmax: f64, ymin: f64, ymax: f64) {
         let y = T + ph * i as f64 / 5.0;
         let xv = xmin + (xmax - xmin) * i as f64 / 5.0;
         let yv = ymax - (ymax - ymin) * i as f64 / 5.0;
+        let x_text = format_tick(xv, xmax - xmin);
+        let y_text = format_tick(yv, ymax - ymin);
         s.push_str(&format!(
-            r#"<text x="{x}" y="684" text-anchor="middle">{xv:.4}</text><text x="90" y="{}" text-anchor="end">{yv:.4}</text>"#,
+            r#"<text x="{x}" y="684" text-anchor="middle">{x_text}</text><text x="90" y="{}" text-anchor="end">{y_text}</text>"#,
             y + 6.0
         ));
+    }
+}
+fn format_tick(value: f64, span: f64) -> String {
+    let magnitude = span.abs();
+    if magnitude >= 100.0 {
+        format!("{value:.0}")
+    } else if magnitude >= 10.0 {
+        format!("{value:.1}")
+    } else if magnitude >= 1.0 {
+        format!("{value:.2}")
+    } else if magnitude >= 0.01 {
+        format!("{value:.4}")
+    } else {
+        format!("{value:.3e}")
     }
 }
 fn legend(s: &mut String, refs: &[ReferenceResult], y: f64) {
@@ -69,6 +85,19 @@ fn legend(s: &mut String, refs: &[ReferenceResult], y: f64) {
             y + 6.0,
             esc(&r.name)
         ));
+        x += 165.0;
+    }
+}
+fn transfer_legend(s: &mut String, refs: &[ReferenceResult], y: f64) {
+    let mut x = 610.0;
+    s.push_str(&format!(r##"<line x1="{x}" y1="{y}" x2="{}" y2="{y}" stroke="#0072b2" stroke-width="3"/><text x="{}" y="{}">nominal ideal</text>"##,x+36.0,x+43.0,y+6.0));
+    x += 185.0;
+    for r in refs
+        .iter()
+        .filter(|r| r.name != "nominal" && r.line.is_some())
+    {
+        let (c, d) = color(&r.name);
+        s.push_str(&format!(r#"<line x1="{x}" y1="{y}" x2="{}" y2="{y}" stroke="{c}" stroke-width="3" stroke-dasharray="{d}"/><text x="{}" y="{}">{}</text>"#,x+36.0,x+43.0,y+6.0,esc(&r.name)));
         x += 165.0;
     }
 }
@@ -95,6 +124,141 @@ fn polyline(s: &mut String, points: &[(f64, f64)], stroke: &str, dash: &str) {
     s.push_str(&format!(
         r#"<polyline class="data" points="{p}" stroke="{stroke}" stroke-dasharray="{dash}"/>"#
     ))
+}
+const MAX_SERIES_POINTS: usize = 2048;
+fn reduce_run(run: &[(usize, f64)]) -> Vec<(usize, f64)> {
+    if run.len() <= MAX_SERIES_POINTS {
+        return run.to_vec();
+    }
+    let bucket_count = MAX_SERIES_POINTS / 4;
+    let chunk_size = run.len().div_ceil(bucket_count);
+    let mut reduced = Vec::with_capacity(MAX_SERIES_POINTS);
+    for chunk in run.chunks(chunk_size) {
+        let mut indices = vec![0, chunk.len() - 1];
+        indices.push(
+            chunk
+                .iter()
+                .enumerate()
+                .min_by(|a, b| a.1 .1.total_cmp(&b.1 .1))
+                .map(|x| x.0)
+                .unwrap_or(0),
+        );
+        indices.push(
+            chunk
+                .iter()
+                .enumerate()
+                .max_by(|a, b| a.1 .1.total_cmp(&b.1 .1))
+                .map(|x| x.0)
+                .unwrap_or(0),
+        );
+        indices.sort_unstable();
+        indices.dedup();
+        reduced.extend(indices.into_iter().map(|i| chunk[i]));
+    }
+    reduced
+}
+#[allow(clippy::too_many_arguments)]
+fn metric_polyline(
+    s: &mut String,
+    run: &[(usize, f64)],
+    stroke: &str,
+    dash: &str,
+    first_index: usize,
+    index_span: usize,
+    y0: f64,
+    height: f64,
+    lo: f64,
+    hi: f64,
+) {
+    let points: Vec<_> = reduce_run(run)
+        .into_iter()
+        .map(|(index, value)| {
+            (
+                L + (index - first_index) as f64 / index_span.max(1) as f64 * (W - L - R),
+                y0 + (hi - value) / (hi - lo) * height,
+            )
+        })
+        .collect();
+    polyline(s, &points, stroke, dash);
+}
+#[allow(clippy::too_many_arguments)]
+fn metric_series(
+    s: &mut String,
+    values: &[(usize, Option<f64>)],
+    stroke: &str,
+    dash: &str,
+    first_index: usize,
+    index_span: usize,
+    y0: f64,
+    height: f64,
+    lo: f64,
+    hi: f64,
+) {
+    let run_count = values
+        .iter()
+        .fold((0usize, false), |(count, inside), (_, value)| {
+            if value.is_some() && !inside {
+                (count + 1, true)
+            } else {
+                (count, value.is_some())
+            }
+        })
+        .0;
+    if run_count > MAX_SERIES_POINTS / 4 {
+        let mut buckets: Vec<Option<(f64, f64)>> = vec![None; MAX_SERIES_POINTS];
+        for &(index, value) in values {
+            let Some(value) = value else { continue };
+            let bucket = ((index - first_index) * (MAX_SERIES_POINTS - 1) / index_span.max(1))
+                .min(MAX_SERIES_POINTS - 1);
+            buckets[bucket] = Some(match buckets[bucket] {
+                Some((min, max)) => (min.min(value), max.max(value)),
+                None => (value, value),
+            });
+        }
+        for (bucket, extrema) in buckets.into_iter().enumerate() {
+            if let Some((min, max)) = extrema {
+                let x = L + bucket as f64 / (MAX_SERIES_POINTS - 1) as f64 * (W - L - R);
+                let y1 = y0 + (hi - min) / (hi - lo) * height;
+                let y2 = y0 + (hi - max) / (hi - lo) * height;
+                s.push_str(&format!(
+                    r#"<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2}" stroke="{stroke}" stroke-width="2" stroke-dasharray="{dash}"/>"#
+                ));
+            }
+        }
+        return;
+    }
+    let mut run = vec![];
+    for &(index, value) in values {
+        if let Some(value) = value {
+            run.push((index, value));
+        } else {
+            metric_polyline(
+                s,
+                &run,
+                stroke,
+                dash,
+                first_index,
+                index_span,
+                y0,
+                height,
+                lo,
+                hi,
+            );
+            run.clear();
+        }
+    }
+    metric_polyline(
+        s,
+        &run,
+        stroke,
+        dash,
+        first_index,
+        index_span,
+        y0,
+        height,
+        lo,
+        hi,
+    );
 }
 pub fn render_transfer(report: &AuditReport) -> Result<String, AuditError> {
     let mut s = axes(
@@ -130,17 +294,45 @@ pub fn render_transfer(report: &AuditReport) -> Result<String, AuditError> {
         .map(|p| map(p.input_v, p.code as f64))
         .collect();
     polyline(&mut s, &pts, "#17202a", "");
+    if report.transitions.len() <= 64 {
+        for transition in &report.transitions {
+            if transition.status == TransitionStatus::Resolved {
+                if let Some(bracket) = transition.bracket {
+                    let (x1, y) = map(bracket.lower_v, transition.k as f64);
+                    let (x2, _) = map(bracket.upper_v, transition.k as f64);
+                    s.push_str(&format!(
+                        r##"<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="#7b3294" stroke-width="3"/><line x1="{x1}" y1="{}" x2="{x1}" y2="{}" stroke="#7b3294"/><line x1="{x2}" y1="{}" x2="{x2}" y2="{}" stroke="#7b3294"/>"##,
+                        y - 5.0,
+                        y + 5.0,
+                        y - 5.0,
+                        y + 5.0
+                    ));
+                }
+            }
+        }
+    }
+    let (x1, y1) = map(
+        xmin,
+        ((xmin - report.config.vmin_v) / report.config.nominal_lsb_v).clamp(0.0, yr),
+    );
+    let (x2, y2) = map(
+        xmax,
+        ((xmax - report.config.vmin_v) / report.config.nominal_lsb_v).clamp(0.0, yr),
+    );
+    polyline(&mut s, &[(x1, y1), (x2, y2)], "#0072b2", "");
     for r in &report.references {
-        if let Some(line) = &r.line {
-            let (x1, y1) = map(xmin, ((xmin - line.a_v) / line.b_v_per_code).clamp(0.0, yr));
-            let (x2, y2) = map(xmax, ((xmax - line.a_v) / line.b_v_per_code).clamp(0.0, yr));
-            let (c, d) = color(&r.name);
-            polyline(&mut s, &[(x1, y1), (x2, y2)], c, d)
+        if r.name != "nominal" {
+            if let Some(line) = &r.line {
+                let (x1, y1) = map(xmin, ((xmin - line.a_v) / line.b_v_per_code).clamp(0.0, yr));
+                let (x2, y2) = map(xmax, ((xmax - line.a_v) / line.b_v_per_code).clamp(0.0, yr));
+                let (c, d) = color(&r.name);
+                polyline(&mut s, &[(x1, y1), (x2, y2)], c, d)
+            }
         }
     }
     tick_labels(&mut s, xmin, xmax, 0.0, yr);
-    legend(&mut s, &report.references, 120.0);
-    s.push_str(r#"<text x="105" y="745">sampled transfer (black); colored lines are transition references</text>"#);
+    transfer_legend(&mut s, &report.references, 120.0);
+    s.push_str(r#"<text x="105" y="745">sampled transfer (black); colored lines are transition references; purple whiskers are resolved brackets.</text>"#);
     if report.status == SweepStatus::NonMonotonic {
         s.push_str(&format!(r##"<text x="105" y="735" fill="#b00020">Warning: {} observed code reversal(s); metrics invalidated.</text>"##,report.diagnostics.reversal_count))
     }
@@ -174,35 +366,51 @@ pub fn render_dnl(report: &AuditReport) -> Result<String, AuditError> {
         .iter()
         .flat_map(|r| r.code_metrics.iter().filter_map(|m| m.dnl_lsb))
         .collect();
-    let (lo, hi) = range(&vals);
-    let n = (report.config.levels - 2).max(1) as f64;
+    let (range_lo, range_hi) = range(&vals);
+    let lo = range_lo.min(-1.05);
+    let hi = range_hi.max(0.05);
+    let width_count = report.config.levels - 2;
+    let index_span = width_count.saturating_sub(1).max(1);
     for code in 1..report.config.levels - 1 {
         if report.codes[code].width_status != "resolved" {
-            let x = L + (code - 1) as f64 / n * (W - L - R);
+            let x = L + (code - 1) as f64 / index_span as f64 * (W - L - R);
             s.push_str(&format!(
                 r##"<line x1="{x}" y1="{T}" x2="{x}" y2="{}" stroke="#f4b6b6" stroke-width="3"/>"##,
                 H - B
             ));
         }
     }
-    for r in &report.references {
-        let (c, d) = color(&r.name);
-        let mut seg = vec![];
-        for m in &r.code_metrics {
-            if let Some(v) = m.dnl_lsb {
-                seg.push((
-                    L + (m.code - 1) as f64 / n * (W - L - R),
-                    T + (hi - v) / (hi - lo) * (H - T - B),
-                ))
-            } else {
-                polyline(&mut s, &seg, c, d);
-                seg.clear()
+    if width_count <= 256 {
+        let zero_y = T + (hi / (hi - lo)) * (H - T - B);
+        let slot = (W - L - R) / width_count.max(1) as f64;
+        let bar_width = (slot * 0.72 / report.references.len().max(1) as f64).max(1.0);
+        for (ri, r) in report.references.iter().enumerate() {
+            let (c, _) = color(&r.name);
+            for m in &r.code_metrics {
+                if let Some(v) = m.dnl_lsb {
+                    let center = L + (m.code - 1) as f64 / index_span as f64 * (W - L - R);
+                    let x = center - slot * 0.36 + ri as f64 * bar_width;
+                    let y = T + (hi - v) / (hi - lo) * (H - T - B);
+                    s.push_str(&format!(
+                        r#"<rect x="{x}" y="{}" width="{bar_width}" height="{}" fill="{c}" fill-opacity="0.55"/>"#,
+                        y.min(zero_y),
+                        (y - zero_y).abs().max(0.6)
+                    ));
+                }
             }
         }
-        polyline(&mut s, &seg, c, d)
+    } else {
+        for r in &report.references {
+            let (c, d) = color(&r.name);
+            let values: Vec<_> = r.code_metrics.iter().map(|m| (m.code, m.dnl_lsb)).collect();
+            metric_series(&mut s, &values, c, d, 1, index_span, T, H - T - B, lo, hi);
+        }
     }
     tick_labels(&mut s, 1.0, (report.config.levels - 2) as f64, lo, hi);
     legend(&mut s, &report.references, 120.0);
+    if vals.is_empty() {
+        s.push_str(r#"<text x="670" y="390" text-anchor="middle">No DNL values are available for this sweep.</text>"#);
+    }
     if lo <= -1.0 && hi >= -1.0 {
         let y = T + (hi + 1.0) / (hi - lo) * (H - T - B);
         s.push_str(&format!(
@@ -263,22 +471,18 @@ pub fn render_inl(report: &AuditReport) -> Result<String, AuditError> {
     let n = (report.config.levels - 2).max(1) as f64;
     for r in &report.references {
         let (c, d) = color(&r.name);
-        let mut seg = vec![];
-        for m in &r.transition_metrics {
-            if let Some(v) = m.inl_lsb {
-                seg.push((
-                    L + (m.k - 1) as f64 / n * (W - L - R),
-                    T + (hi - v) / (hi - lo) * (H - T - B),
-                ))
-            } else {
-                polyline(&mut s, &seg, c, d);
-                seg.clear()
-            }
-        }
-        polyline(&mut s, &seg, c, d)
+        let values: Vec<_> = r
+            .transition_metrics
+            .iter()
+            .map(|m| (m.k, m.inl_lsb))
+            .collect();
+        metric_series(&mut s, &values, c, d, 1, n as usize, T, H - T - B, lo, hi);
     }
     tick_labels(&mut s, 1.0, (report.config.levels - 1) as f64, lo, hi);
     legend(&mut s, &report.references, 120.0);
+    if vals.is_empty() {
+        s.push_str(r#"<text x="670" y="390" text-anchor="middle">No transition residuals are available for this sweep.</text>"#);
+    }
     s.push_str(
         r#"<text x="105" y="745">Nominal: total transition error; endpoint/best-fit: INL.</text>"#,
     );
@@ -303,9 +507,19 @@ fn inl_panel(s: &mut String, refs: &[&ReferenceResult], y0: f64, ph: f64, label:
                 * i as f64
                 / 5.0;
         let v = hi - (hi - lo) * i as f64 / 5.0;
-        s.push_str(&format!(r#"<line class="grid" x1="{x}" y1="{y0}" x2="{x}" y2="{}"/><line class="grid" x1="{L}" y1="{y}" x2="{}" y2="{y}"/><text x="{x}" y="{}" text-anchor="middle">{k:.2}</text><text x="90" y="{}" text-anchor="end">{v:.4}</text>"#,y0+ph,W-R,y0+ph+24.0,y+6.0));
+        let k_text = format_tick(
+            k,
+            refs.first()
+                .map(|r| r.transition_metrics.len())
+                .unwrap_or(1) as f64,
+        );
+        let v_text = format_tick(v, hi - lo);
+        s.push_str(&format!(r#"<line class="grid" x1="{x}" y1="{y0}" x2="{x}" y2="{}"/><line class="grid" x1="{L}" y1="{y}" x2="{}" y2="{y}"/><text x="{x}" y="{}" text-anchor="middle">{k_text}</text><text x="90" y="{}" text-anchor="end">{v_text}</text>"#,y0+ph,W-R,y0+ph+24.0,y+6.0));
     }
     s.push_str(&format!(r#"<rect class="axis" x="{L}" y="{y0}" width="{pw}" height="{ph}"/><text x="28" y="{}" text-anchor="middle" transform="rotate(-90 28 {})">{}</text>"#,y0+ph/2.0,y0+ph/2.0,esc(label)));
+    if vals.is_empty() {
+        s.push_str(&format!(r#"<text x="670" y="{}" text-anchor="middle">No values are available for this reference panel.</text>"#,y0+ph/2.0));
+    }
     let n = refs
         .first()
         .map(|r| r.transition_metrics.len().saturating_sub(1))
@@ -313,19 +527,12 @@ fn inl_panel(s: &mut String, refs: &[&ReferenceResult], y0: f64, ph: f64, label:
         .max(1) as f64;
     for r in refs {
         let (c, d) = color(&r.name);
-        let mut seg = vec![];
-        for m in &r.transition_metrics {
-            if let Some(v) = m.inl_lsb {
-                seg.push((
-                    L + (m.k - 1) as f64 / n * pw,
-                    y0 + (hi - v) / (hi - lo) * ph,
-                ))
-            } else {
-                polyline(s, &seg, c, d);
-                seg.clear()
-            }
-        }
-        polyline(s, &seg, c, d)
+        let values: Vec<_> = r
+            .transition_metrics
+            .iter()
+            .map(|m| (m.k, m.inl_lsb))
+            .collect();
+        metric_series(s, &values, c, d, 1, n as usize, y0, ph, lo, hi);
     }
     let mut lx = 820.0;
     for r in refs {

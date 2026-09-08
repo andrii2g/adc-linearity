@@ -2,6 +2,7 @@ use adc_linearity_audit::{
     analysis::{analyze, ReferenceSelection},
     config::AuditConfig,
     model::{SweepStatus, TransitionStatus},
+    svg,
     synthetic::{make, SynthConfig, SynthModel},
 };
 use std::{fs::File, io::Cursor, path::PathBuf};
@@ -339,4 +340,159 @@ fn synthesis_rejects_excessive_sample_counts_and_nonmonotone_model() {
         span_error_percent: 0.0,
     };
     assert!(make(invalid).is_err());
+}
+
+#[test]
+fn all_documented_csv_validation_failures_are_rejected_with_context() {
+    let cases = [
+        ("input_v,other\n0,0\n1,1\n", "header"),
+        ("input_v,input_v\n0,0\n1,1\n", "header"),
+        ("input_v,code,extra\n0,0,x\n1,1,x\n", "header"),
+        ("input_v,code\n0,\n1,1\n", "record 2"),
+        ("input_v,code\n0,-1\n1,1\n", "record 2"),
+        ("input_v,code\n0,1.5\n1,1\n", "record 2"),
+        ("input_v,code\n0,8\n1,1\n", "record 2"),
+        ("input_v,code\n0,18446744073709551616\n1,1\n", "record 2"),
+        ("input_v,code\nNaN,0\n1,1\n", "record 2"),
+        ("input_v,code\nInfinity,0\n1,1\n", "record 2"),
+        ("input_v,code\n0,0\n0,1\n", "record 3"),
+        ("input_v,code\n1,0\n0,1\n", "record 3"),
+        ("input_v,code\n0,0\n", "at least two"),
+        ("input_v,code\n\"0,0\n", "record 2"),
+    ];
+    for (csv, context) in cases {
+        let error = analyze(
+            Cursor::new(csv),
+            &cfg(),
+            ReferenceSelection::All,
+            "bad.csv".into(),
+        )
+        .unwrap_err()
+        .to_string()
+        .to_lowercase();
+        assert!(
+            error.contains(context),
+            "{error:?} did not contain {context:?}"
+        );
+    }
+    let overflow = AuditConfig {
+        bits: 3,
+        vmin_v: -f64::MAX,
+        vmax_v: f64::MAX,
+    };
+    assert!(analyze(
+        Cursor::new("input_v,code\n0,0\n1,1\n"),
+        &overflow,
+        ReferenceSelection::All,
+        "bad.csv".into()
+    )
+    .is_err());
+}
+
+#[test]
+fn plot_buckets_retain_exact_first_last_min_and_max_samples() {
+    let csv = "input_v,code\n0.000,3\n0.001,7\n0.002,4\n0.003,5\n0.004,0\n0.005,6\n";
+    let r = analyze(
+        Cursor::new(csv),
+        &cfg(),
+        ReferenceSelection::All,
+        "plot.csv".into(),
+    )
+    .unwrap();
+    let records: Vec<_> = r.plot_points.iter().map(|p| p.record).collect();
+    assert_eq!(records, vec![2, 3, 6, 7]);
+}
+
+#[test]
+fn svg_uses_small_code_bars_brackets_and_bounded_large_series() {
+    let perfect = audit("perfect-3bit.csv");
+    let dnl = svg::render_dnl(&perfect).unwrap();
+    assert!(dnl.contains("<rect x="));
+    let transfer = svg::render_transfer(&perfect).unwrap();
+    assert!(transfer.contains("#7b3294"));
+
+    let data = make(SynthConfig {
+        audit: AuditConfig {
+            bits: 12,
+            vmin_v: 0.0,
+            vmax_v: 4.096,
+        },
+        model: SynthModel::Bow,
+        samples_per_lsb: 1,
+        amplitude_lsb: Some(3.0),
+        periods: None,
+        missing_code: None,
+        offset_lsb: 0.0,
+        span_error_percent: 0.0,
+    })
+    .unwrap();
+    let mut csv = String::from("input_v,code\n");
+    for i in 0..=data.intervals {
+        let sample = data.sample(i).unwrap();
+        csv.push_str(&format!("{},{}\n", sample.input_v, sample.code))
+    }
+    let large = analyze(
+        Cursor::new(csv),
+        &data.request.audit,
+        ReferenceSelection::All,
+        "large.csv".into(),
+    )
+    .unwrap();
+    for image in [
+        svg::render_dnl(&large).unwrap(),
+        svg::render_inl(&large).unwrap(),
+    ] {
+        let mut rest = image.as_str();
+        while let Some(start) = rest.find("points=\"") {
+            rest = &rest[start + 8..];
+            let end = rest.find('"').unwrap();
+            let count = rest[..end].split_whitespace().count();
+            assert!(count <= 2048, "series had {count} points");
+            rest = &rest[end + 1..];
+        }
+    }
+}
+
+#[test]
+fn frozen_json_oracle_matches_all_fixture_metrics() {
+    let expected:serde_json::Value=serde_json::from_reader(fixture("expected.json")).unwrap();
+    for (name,case) in expected["cases"].as_object().unwrap(){
+        let report=audit(&format!("{name}.csv"));
+        let status=match report.status{SweepStatus::Valid=>"valid",SweepStatus::Partial=>"partial",SweepStatus::NonMonotonic=>"non_monotonic"};
+        assert_eq!(status,case["status"].as_str().unwrap(),"{name}: status");
+        assert_eq!(report.sample_count,case["samples"].as_u64().unwrap(),"{name}: samples");
+        let resolved:Vec<_>=report.transitions.iter().filter(|t|t.status==TransitionStatus::Resolved).map(|t|t.k as u64).collect();
+        let unresolved:Vec<_>=report.transitions.iter().filter(|t|t.status==TransitionStatus::Unresolved).map(|t|t.k as u64).collect();
+        assert_eq!(resolved,case["resolved_k"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap()).collect::<Vec<_>>(),"{name}: resolved");
+        assert_eq!(unresolved,case["unresolved_k"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap()).collect::<Vec<_>>(),"{name}: unresolved");
+        assert_eq!(report.diagnostics.missing_code_candidates.iter().map(|&x|x as u64).collect::<Vec<_>>(),case["missing_candidates"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap()).collect::<Vec<_>>(),"{name}: candidates");
+        if let Some(values)=case.get("estimate_v").and_then(|v|v.as_array()){for(t,e)in report.transitions.iter().zip(values){match e.as_f64(){Some(v)=>near(t.estimate_v.unwrap(),v),None=>assert!(t.estimate_v.is_none(),"{name}: estimate k{}",t.k)}}}
+        if let Some(values)=case.get("widths_v").and_then(|v|v.as_array()){for(c,e)in report.codes[1..report.config.levels-1].iter().zip(values){match e.as_f64(){Some(v)=>near(c.width_v.unwrap(),v),None=>assert!(c.width_v.is_none(),"{name}: width code {}",c.code)}}}
+        for(key,reference)in[("endpoint_inl_lsb","endpoint"),("best_fit_inl_lsb","best_fit")]{
+            if let Some(values)=case.get(key).and_then(|v|v.as_array()){let r=report.references.iter().find(|r|r.name==reference).unwrap();for(m,e)in r.transition_metrics.iter().zip(values){match e.as_f64(){Some(v)=>near(m.inl_lsb.unwrap(),v),None=>assert!(m.inl_lsb.is_none())}}}
+        }
+        if let Some(values)=case.get("nominal_dnl_lsb").and_then(|v|v.as_array()){for(c,e)in report.codes[1..report.config.levels-1].iter().zip(values){match e.as_f64(){Some(v)=>near(c.nominal_dnl_lsb.unwrap(),v),None=>assert!(c.nominal_dnl_lsb.is_none())}}}
+        for(key,actual)in[("offset_v",report.calibration.offset_v),("gain_span_error_percent",report.calibration.gain_span_error_percent)]{if let Some(expected)=case.get(key){match expected.as_f64(){Some(v)=>near(actual.unwrap(),v),None=>assert!(actual.is_none(),"{name}: {key}")}}}
+    }
+}
+
+#[test]
+fn maximum_code_space_is_bounded_and_sized_correctly() {
+    let csv="input_v,code\n0,0\n1,65535\n";
+    let config=AuditConfig{bits:16,vmin_v:0.0,vmax_v:1.0};
+    let report=analyze(Cursor::new(csv),&config,ReferenceSelection::All,"16bit.csv".into()).unwrap();
+    assert_eq!(report.transitions.len(),65_535);
+    assert_eq!(report.codes.len(),65_536);
+    assert_eq!(report.diagnostics.jumps.len(),1);
+    assert!(report.plot_points.len()<=4_096);
+}
+
+#[test]
+fn svg_escapes_source_and_never_bridges_inl_gaps() {
+    let mut report=audit("missing-3bit.csv");report.source="a&b.csv".into();
+    let transfer=svg::render_transfer(&report).unwrap();assert!(transfer.contains("a&amp;b.csv"));assert!(!transfer.contains("a&b.csv"));
+    let inl=svg::render_inl(&report).unwrap();
+    assert!(inl.matches("<polyline class=\"data\"").count()>=6);
+    let empty=svg::render_dnl(&audit("reversal-3bit.csv")).unwrap();
+    assert!(empty.contains("No DNL values are available"));
 }

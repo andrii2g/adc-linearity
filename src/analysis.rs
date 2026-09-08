@@ -106,7 +106,7 @@ pub fn analyze<R: Read>(
         .into_iter()
         .map(|k| reference(k, &obs.transitions, &codes, &cfg, obs.status))
         .collect();
-    Ok(AuditReport {
+    let report = AuditReport {
         schema_version: 1,
         source,
         config: ReportConfig {
@@ -135,7 +135,21 @@ pub fn analyze<R: Read>(
             "saturation widths are excluded".into(),
         ],
         plot_points: obs.plot_points,
-    })
+    };
+    crate::report::validate_finite(&report)?;
+    Ok(report)
+}
+
+fn compensated_sum(values: impl IntoIterator<Item = f64>) -> f64 {
+    let mut sum = 0.0;
+    let mut correction = 0.0;
+    for value in values {
+        let adjusted = value - correction;
+        let next = sum + adjusted;
+        correction = (next - sum) - adjusted;
+        sum = next;
+    }
+    sum
 }
 
 fn unavailable_cal(reason: &str) -> Calibration {
@@ -242,16 +256,12 @@ fn line(
                 return Err("insufficient_resolved_transitions");
             }
             let n = resolved.len() as f64;
-            let km = resolved.iter().map(|x| x.0).sum::<f64>() / n;
-            let tm = resolved.iter().map(|x| x.1).sum::<f64>() / n;
-            let skk = resolved
-                .iter()
-                .map(|x| (x.0 - km) * (x.0 - km))
-                .sum::<f64>();
-            let skt = resolved
-                .iter()
-                .map(|x| (x.0 - km) * (x.1 - tm))
-                .sum::<f64>();
+            let km = compensated_sum(resolved.iter().map(|x| x.0)) / n;
+            let voltage_anchor = resolved[0].1;
+            let tm =
+                voltage_anchor + compensated_sum(resolved.iter().map(|x| x.1 - voltage_anchor)) / n;
+            let skk = compensated_sum(resolved.iter().map(|x| (x.0 - km) * (x.0 - km)));
+            let skt = compensated_sum(resolved.iter().map(|x| (x.0 - km) * (x.1 - tm)));
             let b = skt / skk;
             let a = tm - b * km;
             if !a.is_finite() || !b.is_finite() || b <= 0.0 {
@@ -326,6 +336,7 @@ fn reference(
     let mut any_run = false;
     let mut prev_k = None;
     let mut cumulative = 0.0;
+    let mut cumulative_correction = 0.0;
     for tr in t {
         let direct = tr.estimate_v.map(|v| {
             (v - (ref_line.anchor_v + ref_line.b_v_per_code * (tr.k as f64 - ref_line.anchor_k)))
@@ -338,13 +349,17 @@ fn reference(
                     run += 1
                 }
                 cumulative = d;
+                cumulative_correction = 0.0;
                 any_run = true;
             } else {
                 let dnl = codes[tr.k - 1]
                     .width_v
                     .map(|w| w / ref_line.b_v_per_code - 1.0)
                     .unwrap_or(0.0);
-                cumulative += dnl;
+                let adjusted = dnl - cumulative_correction;
+                let next = cumulative + adjusted;
+                cumulative_correction = (next - cumulative) - adjusted;
+                cumulative = next;
             }
             prev_k = Some(tr.k);
         } else {
@@ -438,8 +453,9 @@ fn inl_summary(v: &[TransitionMetric]) -> Option<InlSummary> {
         .filter_map(|x| x.inl_lsb.map(|n| (x.k, n)))
         .collect();
     let &(k0, x0) = vals.first()?;
-    let (mut min, mut mink, mut max, mut maxk, mut ma, mut mak, mut sum) =
-        (x0, k0, x0, k0, x0.abs(), k0, 0.0);
+    let (mut min, mut mink, mut max, mut maxk, mut ma, mut mak) = (x0, k0, x0, k0, x0.abs(), k0);
+    let mut scale = 0.0;
+    let mut sum_squares = 1.0;
     for &(k, x) in &vals {
         if x < min {
             min = x;
@@ -453,7 +469,15 @@ fn inl_summary(v: &[TransitionMetric]) -> Option<InlSummary> {
             ma = x.abs();
             mak = k
         }
-        sum += x * x
+        let magnitude = x.abs();
+        if magnitude != 0.0 {
+            if scale < magnitude {
+                sum_squares = 1.0 + sum_squares * (scale / magnitude).powi(2);
+                scale = magnitude;
+            } else {
+                sum_squares += (magnitude / scale).powi(2);
+            }
+        }
     }
     Some(InlSummary {
         count: vals.len(),
@@ -463,6 +487,10 @@ fn inl_summary(v: &[TransitionMetric]) -> Option<InlSummary> {
         max_k: maxk,
         max_abs_lsb: ma,
         max_abs_k: mak,
-        rms_lsb: (sum / vals.len() as f64).sqrt(),
+        rms_lsb: if scale == 0.0 {
+            0.0
+        } else {
+            scale * (sum_squares / vals.len() as f64).sqrt()
+        },
     })
 }

@@ -29,15 +29,16 @@ fn help_and_version_succeed() {
 #[test]
 fn strict_partial_writes_reports_then_returns_three() {
     let out = temp("strict");
-    let status = bin()
+    let output = bin()
         .args(["analyze"])
         .arg(fixture("missing-3bit.csv"))
         .args(["--bits", "3", "--vmin", "0", "--vmax", "8", "--out"])
         .arg(&out)
         .arg("--strict")
-        .status()
+        .output()
         .unwrap();
-    assert_eq!(status.code(), Some(3));
+    assert_eq!(output.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("warning: partial_coverage"));
     for f in [
         "summary.json",
         "transitions.csv",
@@ -48,6 +49,10 @@ fn strict_partial_writes_reports_then_returns_three() {
     ] {
         assert!(out.join(f).is_file())
     }
+    let mut csv=csv::Reader::from_path(out.join("transitions.csv")).unwrap();
+    let headers=csv.headers().unwrap().clone();
+    let boolean_columns:Vec<_>=headers.iter().enumerate().filter(|(_,h)|h.ends_with("_run_start")).map(|(i,_)|i).collect();
+    for row in csv.records(){let row=row.unwrap();for &column in &boolean_columns{assert!(matches!(row.get(column),Some("true"|"false")));}}
     fs::remove_dir_all(out).unwrap();
 }
 #[test]
@@ -94,4 +99,37 @@ fn synth_accepts_negative_range_and_writes_truth() {
     assert!(out.join("sweep.csv").is_file());
     assert!(out.join("truth.json").is_file());
     fs::remove_dir_all(out).unwrap();
+}
+
+#[test]
+fn synth_help_explains_model_defaults_and_inapplicable_flags_fail() {
+    let help = bin().args(["synth", "--help"]).output().unwrap();
+    let text = String::from_utf8_lossy(&help.stdout);
+    assert!(text.contains("defaults to 3 for bow and 0.4 for periodic"));
+    assert!(text.contains("default 8"));
+    assert!(text.contains("default M/2"));
+    let out = temp("bad-flags");
+    let status = bin()
+        .args(["synth", "--model", "perfect", "--periods", "8", "--out"])
+        .arg(&out)
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(2));
+    assert!(!out.exists());
+}
+
+#[test]
+fn invalid_output_parent_returns_one() {
+    let parent = temp("file-parent");
+    fs::write(&parent, b"file").unwrap();
+    let out = parent.join("child");
+    let status = bin()
+        .args(["analyze"])
+        .arg(fixture("perfect-3bit.csv"))
+        .args(["--bits", "3", "--vmin", "0", "--vmax", "8", "--out"])
+        .arg(&out)
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(1));
+    fs::remove_file(parent).unwrap();
 }

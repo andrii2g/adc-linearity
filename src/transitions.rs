@@ -4,6 +4,14 @@ use crate::{config::DerivedConfig, model::*, AuditError};
 const EVENT_CAP: usize = 1000;
 const BUCKETS: usize = 1024;
 
+#[derive(Clone, Debug, Default)]
+struct PlotBucket {
+    first: Option<PlotPoint>,
+    last: Option<PlotPoint>,
+    min_code: Option<PlotPoint>,
+    max_code: Option<PlotPoint>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Observation {
     pub transitions: Vec<Transition>,
@@ -30,7 +38,7 @@ pub struct ObservationBuilder<'a> {
     step_min: f64,
     step_max: f64,
     step_mean: f64,
-    buckets: Vec<Vec<PlotPoint>>,
+    buckets: Vec<PlotBucket>,
 }
 impl<'a> ObservationBuilder<'a> {
     pub fn new(cfg: &'a DerivedConfig) -> Self {
@@ -48,7 +56,7 @@ impl<'a> ObservationBuilder<'a> {
             step_min: f64::INFINITY,
             step_max: 0.0,
             step_mean: 0.0,
-            buckets: (0..BUCKETS).map(|_| Vec::new()).collect(),
+            buckets: vec![PlotBucket::default(); BUCKETS],
         }
     }
     fn event(a: Sample, b: Sample) -> DiagnosticEvent {
@@ -71,16 +79,15 @@ impl<'a> ObservationBuilder<'a> {
             code: s.code,
         };
         let b = &mut self.buckets[idx];
-        if b.len() < 4 {
-            b.push(p);
-            return;
+        if b.first.is_none() {
+            b.first = Some(p.clone());
         }
-        b[1] = p.clone();
-        if p.code < b[2].code {
-            b[2] = p.clone();
+        b.last = Some(p.clone());
+        if b.min_code.as_ref().is_none_or(|old| p.code < old.code) {
+            b.min_code = Some(p.clone());
         }
-        if p.code > b[3].code {
-            b[3] = p;
+        if b.max_code.as_ref().is_none_or(|old| p.code > old.code) {
+            b.max_code = Some(p);
         }
     }
     pub fn push(&mut self, s: Sample) -> Result<(), AuditError> {
@@ -100,14 +107,23 @@ impl<'a> ObservationBuilder<'a> {
                     s.record
                 )));
             }
-            self.step_count += 1;
+            self.step_count = self
+                .step_count
+                .checked_add(1)
+                .ok_or_else(|| AuditError::validation("step count overflow"))?;
             self.step_min = self.step_min.min(step);
             self.step_max = self.step_max.max(step);
             self.step_mean += (step - self.step_mean) / (self.step_count as f64);
+            if !self.step_mean.is_finite() {
+                return Err(AuditError::validation("step mean overflow"));
+            }
             if s.code > p.code {
                 let delta = s.code - p.code;
                 if delta > 1 {
-                    self.jump_count += 1;
+                    self.jump_count = self
+                        .jump_count
+                        .checked_add(1)
+                        .ok_or_else(|| AuditError::validation("jump count overflow"))?;
                     if self.jumps.len() < EVENT_CAP {
                         self.jumps.push(Self::event(p, s));
                     }
@@ -126,7 +142,10 @@ impl<'a> ObservationBuilder<'a> {
                     }
                 }
             } else if s.code < p.code {
-                self.reversal_count += 1;
+                self.reversal_count = self
+                    .reversal_count
+                    .checked_add(1)
+                    .ok_or_else(|| AuditError::validation("reversal count overflow"))?;
                 if self.reversals.len() < EVENT_CAP {
                     self.reversals.push(Self::event(p, s));
                 }
@@ -272,7 +291,14 @@ impl<'a> ObservationBuilder<'a> {
             resolved_width_count: resolved_widths,
             expected_width_count: self.cfg.levels - 2,
         };
-        let mut points: Vec<_> = self.buckets.into_iter().flatten().collect();
+        let mut points = Vec::with_capacity(BUCKETS * 4);
+        for bucket in self.buckets {
+            points.extend(
+                [bucket.first, bucket.last, bucket.min_code, bucket.max_code]
+                    .into_iter()
+                    .flatten(),
+            );
+        }
         points.sort_by_key(|p| p.record);
         points.dedup_by_key(|p| p.record);
         Ok(Observation {

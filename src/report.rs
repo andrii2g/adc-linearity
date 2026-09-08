@@ -87,9 +87,7 @@ pub fn write_report(report: &AuditReport, out: &Path) -> Result<(), AuditError> 
                 opt(m.inl_lsb),
                 opt(m.cumulative_inl_lsb),
                 opt_u(m.cumulative_run_id),
-                m.cumulative_inl_lsb
-                    .map(|_| m.cumulative_run_start.to_string())
-                    .unwrap_or_default(),
+                m.cumulative_run_start.to_string(),
             ])
         }
         tw.write_record(row)?;
@@ -145,7 +143,7 @@ pub fn write_report(report: &AuditReport, out: &Path) -> Result<(), AuditError> 
     fs::write(out.join("inl.svg"), svg::render_inl(report)?)?;
     Ok(())
 }
-fn validate_finite(report: &AuditReport) -> Result<(), AuditError> {
+pub(crate) fn validate_finite(report: &AuditReport) -> Result<(), AuditError> {
     let finite = |value: f64| {
         if value.is_finite() {
             Ok(())

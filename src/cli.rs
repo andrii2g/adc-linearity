@@ -25,22 +25,32 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Analyze a strictly increasing input-voltage/code CSV sweep.
     Analyze {
+        /// CSV containing exactly input_v and code columns.
         csv: PathBuf,
+        /// ADC resolution in bits (2..=16).
         #[arg(long)]
         bits: u8,
+        /// Nominal minimum input voltage.
         #[arg(long, allow_hyphen_values = true)]
         vmin: f64,
+        /// Nominal maximum input voltage.
         #[arg(long, allow_hyphen_values = true)]
         vmax: f64,
+        /// Straight-line reference(s) to evaluate.
         #[arg(long, value_enum, default_value = "all")]
         reference: RefArg,
+        /// New or empty report directory.
         #[arg(long)]
         out: PathBuf,
+        /// Return 3 after writing reports unless the sweep is fully valid.
         #[arg(long)]
         strict: bool,
     },
+    /// Generate a deterministic threshold-model sweep and independent truth.
     Synth {
+        /// Threshold model to generate.
         #[arg(long, value_enum)]
         model: ModelArg,
         #[arg(long, default_value_t = 12)]
@@ -51,20 +61,28 @@ enum Command {
         vmax: f64,
         #[arg(long, default_value_t = 64)]
         samples_per_lsb: u32,
+        /// Peak threshold displacement in nominal LSB; defaults to 3 for bow and 0.4 for periodic.
         #[arg(long)]
         amplitude_lsb: Option<f64>,
+        /// Number of sinusoidal periods; periodic only, default 8.
         #[arg(long)]
         periods: Option<u32>,
+        /// Interior code to delete; missing-code only, default M/2.
         #[arg(long)]
         missing_code: Option<usize>,
+        /// Affine threshold shift at vmin in nominal LSB. The reported first-transition offset also includes span scaling.
         #[arg(long, default_value_t = 0.0, allow_hyphen_values = true)]
         offset_lsb: f64,
+        /// Input-span scale error in percent; must leave a positive scale.
         #[arg(long, default_value_t = 0.0, allow_hyphen_values = true)]
         span_error_percent: f64,
+        /// New or empty synthetic-output directory.
         #[arg(long)]
         out: PathBuf,
     },
+    /// Generate and audit the six fixed educational scenarios.
     Demo {
+        /// New or empty demo root.
         #[arg(long)]
         out: PathBuf,
     },
@@ -148,6 +166,9 @@ fn execute(cli: Cli) -> Result<i32, AuditError> {
                 source,
             )?;
             report::write_report(&report, &out)?;
+            for warning in &report.diagnostics.warnings {
+                eprintln!("warning: {warning}");
+            }
             print_summary(&report, &out);
             Ok(if strict && report.status != SweepStatus::Valid {
                 3
@@ -257,15 +278,33 @@ fn print_summary(r: &crate::model::AuditReport, out: &Path) {
     }
     for rf in &r.references {
         if rf.availability == "available" {
+            let scope = if rf.coverage.scope == "partial" {
+                "partial "
+            } else {
+                ""
+            };
+            let dnl = rf
+                .dnl_summary
+                .as_ref()
+                .map(|x| x.max_abs_lsb.to_string())
+                .unwrap_or_else(|| "unavailable".into());
+            let inl = rf
+                .inl_summary
+                .as_ref()
+                .map(|x| x.max_abs_lsb.to_string())
+                .unwrap_or_else(|| "unavailable".into());
             println!(
-                "{}: {} transitions, max |{}| = {}",
+                "{}: {} transitions/{} widths; {}max |DNL| = {} {}, {}max |{}| = {} {}",
                 rf.name,
                 rf.coverage.evaluated_transition_count,
+                rf.coverage.evaluated_width_count,
+                scope,
+                dnl,
+                rf.lsb_basis,
+                scope,
                 rf.display_quantity,
-                rf.inl_summary
-                    .as_ref()
-                    .map(|x| x.max_abs_lsb.to_string())
-                    .unwrap_or_else(|| "unavailable".into())
+                inl,
+                rf.lsb_basis
             )
         } else {
             println!(
