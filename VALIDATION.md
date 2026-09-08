@@ -13,11 +13,14 @@ Toolchain:
 | Command | Outcome |
 | --- | --- |
 | cargo fmt --check | PASS |
-| cargo clippy --all-targets -- -D warnings | PASS |
-| cargo test | PASS: 31 tests (20 analysis, 8 CLI, 3 configuration), plus doc tests |
-| cargo build --release | PASS |
-| cargo run --release -- demo --out results/demo | PASS |
-| second release demo plus SHA-256 comparison | PASS: all 49 files byte-for-byte identical |
+| cargo clippy --locked --all-targets -- -D warnings | PASS |
+| cargo test --locked | PASS: 31 tests (20 analysis, 8 CLI, 3 configuration), plus doc tests |
+| cargo build --locked --release | PASS |
+| cargo run --locked --release -- demo --out results/demo | PASS |
+| Rust demo determinism integration test | PASS: all 49 files byte-for-byte identical |
+
+All verification runs locally through Cargo. The repository intentionally has no
+Python helper scripts and no GitHub Actions workflow.
 
 The tests cover independent hand-derived perfect, bow, affine, missing-code,
 coarse-sampling, partial, constant-code, and reversal fixtures. They also cover CSV
