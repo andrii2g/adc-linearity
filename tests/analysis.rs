@@ -455,44 +455,156 @@ fn svg_uses_small_code_bars_brackets_and_bounded_large_series() {
 
 #[test]
 fn frozen_json_oracle_matches_all_fixture_metrics() {
-    let expected:serde_json::Value=serde_json::from_reader(fixture("expected.json")).unwrap();
-    for (name,case) in expected["cases"].as_object().unwrap(){
-        let report=audit(&format!("{name}.csv"));
-        let status=match report.status{SweepStatus::Valid=>"valid",SweepStatus::Partial=>"partial",SweepStatus::NonMonotonic=>"non_monotonic"};
-        assert_eq!(status,case["status"].as_str().unwrap(),"{name}: status");
-        assert_eq!(report.sample_count,case["samples"].as_u64().unwrap(),"{name}: samples");
-        let resolved:Vec<_>=report.transitions.iter().filter(|t|t.status==TransitionStatus::Resolved).map(|t|t.k as u64).collect();
-        let unresolved:Vec<_>=report.transitions.iter().filter(|t|t.status==TransitionStatus::Unresolved).map(|t|t.k as u64).collect();
-        assert_eq!(resolved,case["resolved_k"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap()).collect::<Vec<_>>(),"{name}: resolved");
-        assert_eq!(unresolved,case["unresolved_k"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap()).collect::<Vec<_>>(),"{name}: unresolved");
-        assert_eq!(report.diagnostics.missing_code_candidates.iter().map(|&x|x as u64).collect::<Vec<_>>(),case["missing_candidates"].as_array().unwrap().iter().map(|v|v.as_u64().unwrap()).collect::<Vec<_>>(),"{name}: candidates");
-        if let Some(values)=case.get("estimate_v").and_then(|v|v.as_array()){for(t,e)in report.transitions.iter().zip(values){match e.as_f64(){Some(v)=>near(t.estimate_v.unwrap(),v),None=>assert!(t.estimate_v.is_none(),"{name}: estimate k{}",t.k)}}}
-        if let Some(values)=case.get("widths_v").and_then(|v|v.as_array()){for(c,e)in report.codes[1..report.config.levels-1].iter().zip(values){match e.as_f64(){Some(v)=>near(c.width_v.unwrap(),v),None=>assert!(c.width_v.is_none(),"{name}: width code {}",c.code)}}}
-        for(key,reference)in[("endpoint_inl_lsb","endpoint"),("best_fit_inl_lsb","best_fit")]{
-            if let Some(values)=case.get(key).and_then(|v|v.as_array()){let r=report.references.iter().find(|r|r.name==reference).unwrap();for(m,e)in r.transition_metrics.iter().zip(values){match e.as_f64(){Some(v)=>near(m.inl_lsb.unwrap(),v),None=>assert!(m.inl_lsb.is_none())}}}
+    let expected: serde_json::Value = serde_json::from_reader(fixture("expected.json")).unwrap();
+    for (name, case) in expected["cases"].as_object().unwrap() {
+        let report = audit(&format!("{name}.csv"));
+        let status = match report.status {
+            SweepStatus::Valid => "valid",
+            SweepStatus::Partial => "partial",
+            SweepStatus::NonMonotonic => "non_monotonic",
+        };
+        assert_eq!(status, case["status"].as_str().unwrap(), "{name}: status");
+        assert_eq!(
+            report.sample_count,
+            case["samples"].as_u64().unwrap(),
+            "{name}: samples"
+        );
+        let resolved: Vec<_> = report
+            .transitions
+            .iter()
+            .filter(|t| t.status == TransitionStatus::Resolved)
+            .map(|t| t.k as u64)
+            .collect();
+        let unresolved: Vec<_> = report
+            .transitions
+            .iter()
+            .filter(|t| t.status == TransitionStatus::Unresolved)
+            .map(|t| t.k as u64)
+            .collect();
+        assert_eq!(
+            resolved,
+            case["resolved_k"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            "{name}: resolved"
+        );
+        assert_eq!(
+            unresolved,
+            case["unresolved_k"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            "{name}: unresolved"
+        );
+        assert_eq!(
+            report
+                .diagnostics
+                .missing_code_candidates
+                .iter()
+                .map(|&x| x as u64)
+                .collect::<Vec<_>>(),
+            case["missing_candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            "{name}: candidates"
+        );
+        if let Some(values) = case.get("estimate_v").and_then(|v| v.as_array()) {
+            for (t, e) in report.transitions.iter().zip(values) {
+                match e.as_f64() {
+                    Some(v) => near(t.estimate_v.unwrap(), v),
+                    None => assert!(t.estimate_v.is_none(), "{name}: estimate k{}", t.k),
+                }
+            }
         }
-        if let Some(values)=case.get("nominal_dnl_lsb").and_then(|v|v.as_array()){for(c,e)in report.codes[1..report.config.levels-1].iter().zip(values){match e.as_f64(){Some(v)=>near(c.nominal_dnl_lsb.unwrap(),v),None=>assert!(c.nominal_dnl_lsb.is_none())}}}
-        for(key,actual)in[("offset_v",report.calibration.offset_v),("gain_span_error_percent",report.calibration.gain_span_error_percent)]{if let Some(expected)=case.get(key){match expected.as_f64(){Some(v)=>near(actual.unwrap(),v),None=>assert!(actual.is_none(),"{name}: {key}")}}}
+        if let Some(values) = case.get("widths_v").and_then(|v| v.as_array()) {
+            for (c, e) in report.codes[1..report.config.levels - 1].iter().zip(values) {
+                match e.as_f64() {
+                    Some(v) => near(c.width_v.unwrap(), v),
+                    None => assert!(c.width_v.is_none(), "{name}: width code {}", c.code),
+                }
+            }
+        }
+        for (key, reference) in [
+            ("endpoint_inl_lsb", "endpoint"),
+            ("best_fit_inl_lsb", "best_fit"),
+        ] {
+            if let Some(values) = case.get(key).and_then(|v| v.as_array()) {
+                let r = report
+                    .references
+                    .iter()
+                    .find(|r| r.name == reference)
+                    .unwrap();
+                for (m, e) in r.transition_metrics.iter().zip(values) {
+                    match e.as_f64() {
+                        Some(v) => near(m.inl_lsb.unwrap(), v),
+                        None => assert!(m.inl_lsb.is_none()),
+                    }
+                }
+            }
+        }
+        if let Some(values) = case.get("nominal_dnl_lsb").and_then(|v| v.as_array()) {
+            for (c, e) in report.codes[1..report.config.levels - 1].iter().zip(values) {
+                match e.as_f64() {
+                    Some(v) => near(c.nominal_dnl_lsb.unwrap(), v),
+                    None => assert!(c.nominal_dnl_lsb.is_none()),
+                }
+            }
+        }
+        for (key, actual) in [
+            ("offset_v", report.calibration.offset_v),
+            (
+                "gain_span_error_percent",
+                report.calibration.gain_span_error_percent,
+            ),
+        ] {
+            if let Some(expected) = case.get(key) {
+                match expected.as_f64() {
+                    Some(v) => near(actual.unwrap(), v),
+                    None => assert!(actual.is_none(), "{name}: {key}"),
+                }
+            }
+        }
     }
 }
 
 #[test]
 fn maximum_code_space_is_bounded_and_sized_correctly() {
-    let csv="input_v,code\n0,0\n1,65535\n";
-    let config=AuditConfig{bits:16,vmin_v:0.0,vmax_v:1.0};
-    let report=analyze(Cursor::new(csv),&config,ReferenceSelection::All,"16bit.csv".into()).unwrap();
-    assert_eq!(report.transitions.len(),65_535);
-    assert_eq!(report.codes.len(),65_536);
-    assert_eq!(report.diagnostics.jumps.len(),1);
-    assert!(report.plot_points.len()<=4_096);
+    let csv = "input_v,code\n0,0\n1,65535\n";
+    let config = AuditConfig {
+        bits: 16,
+        vmin_v: 0.0,
+        vmax_v: 1.0,
+    };
+    let report = analyze(
+        Cursor::new(csv),
+        &config,
+        ReferenceSelection::All,
+        "16bit.csv".into(),
+    )
+    .unwrap();
+    assert_eq!(report.transitions.len(), 65_535);
+    assert_eq!(report.codes.len(), 65_536);
+    assert_eq!(report.diagnostics.jumps.len(), 1);
+    assert!(report.plot_points.len() <= 4_096);
 }
 
 #[test]
 fn svg_escapes_source_and_never_bridges_inl_gaps() {
-    let mut report=audit("missing-3bit.csv");report.source="a&b.csv".into();
-    let transfer=svg::render_transfer(&report).unwrap();assert!(transfer.contains("a&amp;b.csv"));assert!(!transfer.contains("a&b.csv"));
-    let inl=svg::render_inl(&report).unwrap();
-    assert!(inl.matches("<polyline class=\"data\"").count()>=6);
-    let empty=svg::render_dnl(&audit("reversal-3bit.csv")).unwrap();
+    let mut report = audit("missing-3bit.csv");
+    report.source = "a&b.csv".into();
+    let transfer = svg::render_transfer(&report).unwrap();
+    assert!(transfer.contains("a&amp;b.csv"));
+    assert!(!transfer.contains("a&b.csv"));
+    let inl = svg::render_inl(&report).unwrap();
+    assert!(inl.matches("<polyline class=\"data\"").count() >= 6);
+    let empty = svg::render_dnl(&audit("reversal-3bit.csv")).unwrap();
     assert!(empty.contains("No DNL values are available"));
 }

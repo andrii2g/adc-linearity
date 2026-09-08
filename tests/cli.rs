@@ -49,10 +49,20 @@ fn strict_partial_writes_reports_then_returns_three() {
     ] {
         assert!(out.join(f).is_file())
     }
-    let mut csv=csv::Reader::from_path(out.join("transitions.csv")).unwrap();
-    let headers=csv.headers().unwrap().clone();
-    let boolean_columns:Vec<_>=headers.iter().enumerate().filter(|(_,h)|h.ends_with("_run_start")).map(|(i,_)|i).collect();
-    for row in csv.records(){let row=row.unwrap();for &column in &boolean_columns{assert!(matches!(row.get(column),Some("true"|"false")));}}
+    let mut csv = csv::Reader::from_path(out.join("transitions.csv")).unwrap();
+    let headers = csv.headers().unwrap().clone();
+    let boolean_columns: Vec<_> = headers
+        .iter()
+        .enumerate()
+        .filter(|(_, h)| h.ends_with("_run_start"))
+        .map(|(i, _)| i)
+        .collect();
+    for row in csv.records() {
+        let row = row.unwrap();
+        for &column in &boolean_columns {
+            assert!(matches!(row.get(column), Some("true" | "false")));
+        }
+    }
     fs::remove_dir_all(out).unwrap();
 }
 #[test]
