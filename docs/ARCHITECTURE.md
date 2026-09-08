@@ -71,10 +71,9 @@ finalization; reference metrics point to k/code keys rather than changing raw es
 All serde enum spellings are snake_case; CLI spelling best-fit maps to JSON best_fit.
 Represent unavailability explicitly; never a zero-filled default vector of measurements.
 
-## Starter code supplied
+## Implemented module boundaries
 
-config.rs implements basic validated sizing/range checks and model.rs starts the core
-types. Other modules contain explicit implementation markers. main.rs exits 2 with a
-scaffold message. These files are a starting point and have not been compiled here.
-The implementer must add error types, remaining models and tested public interfaces.
-Do not preserve the scaffold command behavior once the real CLI exists.
+The modules above are implemented and exercised through unit, integration, CLI, and
+artifact tests. `main.rs` is intentionally thin; command parsing and exit mapping live
+in `cli.rs`, while numerical and serialization code remain independent of stdout.
+See `VALIDATION.md` for the current toolchain and completed verification commands.
